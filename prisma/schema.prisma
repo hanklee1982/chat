@@ -1,0 +1,178 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户模型
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  avatar        String?
+  phone         String?   @unique
+  email         String?   @unique
+  password      String?
+  role          Role      @default(USER) // 普通用户/代理/管理员
+  packageType   PackageType @default(BASIC) // 套餐类型
+  tokenBalance  Float     @default(300) // Token余额（对应火山引擎300元额度）
+  workstationId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // 关联关系
+  sessions      Session[]
+  orders        Order[]
+  tokenLogs     TokenLog[]
+  workstation   Workstation? @relation(fields: [workstationId], references: [id])
+}
+
+// 会话模型（聊天对话）
+model Session {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String   @default("新对话")
+  prompt      String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // 关联关系
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    Message[]
+}
+
+// 聊天消息模型
+model Message {
+  id          String   @id @default(cuid())
+  sessionId   String
+  content     String
+  role        RoleType // user/assistant
+  createdAt   DateTime @default(now())
+  // 关联关系
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// 订单模型
+model Order {
+  id          String   @id @default(cuid())
+  userId      String
+  orderType   OrderType // 初装费/月费/Skill购买/Token充值
+  amount      Float
+  status      OrderStatus // 待支付/已支付/已取消
+  payMethod   PayMethod? // 微信/支付宝
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+  // 关联关系
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Token使用日志
+model TokenLog {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float
+  type        TokenLogType // 消耗/充值/赠送
+  description String?
+  createdAt   DateTime @default(now())
+  // 关联关系
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 工作站模型
+model Workstation {
+  id          String   @id @default(cuid())
+  name        String
+  ip          String?
+  status      WorkstationStatus // 空闲/已绑定/在线/离线
+  config      Json?    // 工作站配置
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // 关联关系
+  user        User?
+}
+
+// Skill模型
+model Skill {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  price       Float    @default(0) // 0表示免费
+  status      SkillStatus // 上架/下架
+  type        SkillType // 工具类/创作类/营销类
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 用户Skill绑定模型
+model UserSkill {
+  id          String   @id @default(cuid())
+  userId      String
+  skillId     String
+  installedAt DateTime @default(now())
+  // 关联关系
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  @@unique([userId, skillId])
+}
+
+// 枚举类型
+enum Role {
+  USER
+  AGENT
+  ADMIN
+}
+
+enum PackageType {
+  BASIC
+  PREMIUM
+}
+
+enum OrderType {
+  INIT_FEE
+  MONTHLY_FEE
+  SKILL_BUY
+  TOP_UP_TOKEN
+  HARDWARE_UPGRADE
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum PayMethod {
+  WECHAT
+  ALIPAY
+}
+
+enum TokenLogType {
+  CONSUME
+  TOP_UP
+  GIFT
+}
+
+enum WorkstationStatus {
+  IDLE
+  BOUND
+  ONLINE
+  OFFLINE
+}
+
+enum SkillStatus {
+  ONLINE
+  OFFLINE
+}
+
+enum SkillType {
+  TOOL
+  CREATIVE
+  MARKETING
+}
+
+enum RoleType {
+  user
+  assistant
+}
