@@ -1,0 +1,95 @@
+// This is your Prisma schema file, 
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户表
+model User {
+  id            Int      @id @default(autoincrement())
+  username      String   @unique
+  email         String   @unique
+  password      String
+  status        String   @default("pending") // active, inactive, pending
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  payments      Payment[]
+  configurations Configuration[]
+  chatSessions  ChatSession[]
+  userSkills    UserSkill[]
+}
+
+// 支付记录表
+model Payment {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  amount        Float
+  type          String   // one-time, subscription
+  status        String   @default("pending") // pending, success, failed
+  transactionId String?
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+// 配置进度表
+model Configuration {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  status       String   @default("in_progress") // in_progress, completed, failed
+  progress     Int      @default(0)
+  configData   Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+// 聊天会话表
+model ChatSession {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  title      String   @default("New Chat")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id])
+  chatMessages ChatMessage[]
+}
+
+// 聊天消息表
+model ChatMessage {
+  id         Int      @id @default(autoincrement())
+  sessionId  Int
+  content    String
+  role       String   // user, assistant
+  createdAt  DateTime @default(now())
+  session    ChatSession @relation(fields: [sessionId], references: [id])
+}
+
+// 技能市场表
+model Skill {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  category    String?
+  price       Float    @default(0.00)
+  createdAt   DateTime @default(now())
+  userSkills  UserSkill[]
+}
+
+// 用户技能关联表
+model UserSkill {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  skillId     Int
+  activatedAt DateTime @default(now())
+  expiredAt   DateTime?
+  user        User     @relation(fields: [userId], references: [id])
+  skill       Skill    @relation(fields: [skillId], references: [id])
+  
+  @@unique([userId, skillId])
+}
